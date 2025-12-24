@@ -1,0 +1,35 @@
+[
+  {
+    "id": "mission_1",
+    "title": "Dostawa Paczki",
+    "description": "Dostarcz paczkę na miejsce",
+    "type": "delivery",
+    "targetX": 1200,
+    "targetY": 1200,
+    "deliveryRadius": 80,
+    "reward": 500
+  },
+  {
+    "id": "mission_2",
+    "title": "Wyeliminuj Gang",
+    "description": "Zniszcz grupę wrogów",
+    "type": "elimination",
+    "targetCount": 5,
+    "targetType": "gang",
+    "spawnArea": {
+      "x": 2000,
+      "y": 2000,
+      "w": 300,
+      "h": 300
+    },
+    "reward": 1000
+  },
+  {
+    "id": "mission_3",
+    "title": "Zniszcz Pojazdy",
+    "description": "Zniszcz wrogie pojazdy",
+    "type": "destruction",
+    "targetCount": 3,
+    "reward": 750
+  }
+]
