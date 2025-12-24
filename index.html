@@ -220,6 +220,9 @@
     const game = new Game();
     game.init().then(() => {
       game.start();
+    }).catch(error => {
+      console.error('Game initialization failed:', error);
+      document.getElementById('loading').innerHTML = 'BŁĄD: ' + error.message + '<br><small>Sprawdź konsolę przeglądarki</small>';
     });
   </script>
 </body>

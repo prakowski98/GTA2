@@ -1,0 +1,304 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Uliczny Chaos - Gra Akcji [DEBUG]</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      background: #000;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      min-height: 100vh;
+      font-family: monospace;
+      color: #fff;
+    }
+
+    #game-container {
+      position: relative;
+      box-shadow: 0 0 30px rgba(0, 255, 0, 0.3);
+    }
+
+    #game-canvas {
+      display: block;
+      background: #1a1a1a;
+      image-rendering: pixelated;
+    }
+
+    #loading {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      font-size: 24px;
+      color: #00ff00;
+      text-align: center;
+    }
+
+    #loading.hidden {
+      display: none;
+    }
+
+    #debug-log {
+      position: absolute;
+      top: 10px;
+      right: 10px;
+      background: rgba(0,0,0,0.8);
+      padding: 10px;
+      font-size: 10px;
+      max-width: 300px;
+      max-height: 500px;
+      overflow-y: auto;
+      color: #0f0;
+    }
+  </style>
+</head>
+<body>
+  <div id="game-container">
+    <canvas id="game-canvas" width="1280" height="720"></canvas>
+    <div id="loading">
+      ŁADOWANIE...<br>
+      <small>Uliczny Chaos</small>
+    </div>
+    <div id="debug-log"></div>
+  </div>
+
+  <script type="module">
+    const debugLog = document.getElementById('debug-log');
+    function log(msg) {
+      console.log(msg);
+      debugLog.innerHTML += msg + '<br>';
+      debugLog.scrollTop = debugLog.scrollHeight;
+    }
+
+    log('Starting imports...');
+
+    import { Engine } from './game/core/Engine.js';
+    log('✓ Engine');
+    import { EntityManager } from './game/entities/EntityManager.js';
+    log('✓ EntityManager');
+    import { InputManager } from './game/input/InputManager.js';
+    log('✓ InputManager');
+    import { Camera } from './game/world/Camera.js';
+    log('✓ Camera');
+    import { WorldGenerator } from './game/world/WorldGenerator.js';
+    log('✓ WorldGenerator');
+    import { PhysicsSystem } from './game/systems/PhysicsSystem.js';
+    log('✓ PhysicsSystem');
+    import { RenderSystem } from './game/systems/RenderSystem.js';
+    log('✓ RenderSystem');
+    import { AISystem } from './game/systems/AISystem.js';
+    log('✓ AISystem');
+    import { CombatSystem } from './game/systems/CombatSystem.js';
+    log('✓ CombatSystem');
+    import { WantedSystem } from './game/systems/WantedSystem.js';
+    log('✓ WantedSystem');
+    import { MissionSystem } from './game/systems/MissionSystem.js';
+    log('✓ MissionSystem');
+    import { HUD } from './game/ui/HUD.js';
+    log('✓ HUD');
+    import { Player } from './game/entities/Player.js';
+    log('✓ Player');
+    import { Vehicle } from './game/entities/Vehicle.js';
+    log('✓ Vehicle');
+    import { NPC } from './game/entities/NPC.js';
+    log('✓ NPC');
+    import { GameConfig } from './game/data/config.js';
+    log('✓ GameConfig');
+
+    log('All imports complete!');
+
+    class Game {
+      constructor() {
+        log('Creating Game instance...');
+        this.canvas = document.getElementById('game-canvas');
+        this.loading = document.getElementById('loading');
+        this.engine = new Engine(this.canvas);
+        this.initialized = false;
+        log('Game instance created');
+      }
+
+      async init() {
+        try {
+          log('Starting init...');
+          const entityManager = new EntityManager();
+          log('EntityManager created');
+          const inputManager = new InputManager();
+          log('InputManager created');
+          const camera = new Camera(GameConfig.canvas.width, GameConfig.canvas.height);
+          log('Camera created');
+          const map = WorldGenerator.generate(GameConfig.world.width, GameConfig.world.height);
+          log('Map generated: ' + map.width + 'x' + map.height);
+
+          this.engine.state = {
+            entityManager,
+            inputManager,
+            camera,
+            map
+          };
+          log('Engine state set');
+
+          const physicsSystem = new PhysicsSystem(entityManager, map);
+          const renderSystem = new RenderSystem(entityManager, map, camera);
+          const aiSystem = new AISystem(entityManager);
+          const combatSystem = new CombatSystem(entityManager);
+          const wantedSystem = new WantedSystem(entityManager, map);
+          const missionSystem = new MissionSystem(entityManager, map);
+          const hud = new HUD(entityManager);
+          log('All systems created');
+
+          this.engine.state.wantedSystem = wantedSystem;
+          this.engine.state.missionSystem = missionSystem;
+
+          this.engine.addSystem(physicsSystem);
+          this.engine.addSystem(aiSystem);
+          this.engine.addSystem(combatSystem);
+          this.engine.addSystem(wantedSystem);
+          this.engine.addSystem(missionSystem);
+          this.engine.addSystem({
+            update: (dt, engine) => {
+              inputManager.update();
+              camera.update(dt);
+              entityManager.update();
+
+              const player = entityManager.getByType('player')[0];
+              if (player) {
+                Player.update(player, inputManager, dt, engine);
+              }
+            }
+          });
+          log('Update systems added');
+
+          this.engine.addRenderSystem(renderSystem);
+          this.engine.addRenderSystem(hud);
+          this.engine.addRenderSystem({
+            render: (ctx, alpha, engine) => {
+              const mission = missionSystem.currentMission;
+              if (mission && mission.type === 'delivery') {
+                camera.apply(ctx);
+                ctx.fillStyle = 'rgba(0, 255, 0, 0.3)';
+                ctx.beginPath();
+                ctx.arc(mission.targetX, mission.targetY, mission.deliveryRadius, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.strokeStyle = '#00ff00';
+                ctx.lineWidth = 3;
+                ctx.stroke();
+                camera.restore(ctx);
+              }
+
+              for (const trigger of map.missionTriggers) {
+                const mission = missionSystem.missions.find(m => m.id === trigger.missionId && !m.completed);
+                if (mission && !missionSystem.currentMission) {
+                  camera.apply(ctx);
+                  ctx.fillStyle = 'rgba(0, 255, 0, 0.5)';
+                  ctx.beginPath();
+                  ctx.arc(trigger.x, trigger.y, trigger.radius, 0, Math.PI * 2);
+                  ctx.fill();
+                  camera.restore(ctx);
+                }
+              }
+            }
+          });
+          log('Render systems added');
+
+          log('Loading missions...');
+          await this.loadMissions(missionSystem);
+          log('Missions loaded');
+
+          log('Spawning entities...');
+          this.spawnEntities(entityManager, map, camera);
+          log('Entities spawned');
+
+          this.loading.classList.add('hidden');
+          this.initialized = true;
+          log('Init complete!');
+        } catch (error) {
+          log('ERROR in init: ' + error.message);
+          log('Stack: ' + error.stack);
+          throw error;
+        }
+      }
+
+      async loadMissions(missionSystem) {
+        try {
+          const response = await fetch('./game/data/missions.json');
+          const missions = await response.json();
+          missionSystem.loadMissions(missions);
+          log('Missions loaded from JSON');
+        } catch (error) {
+          log('Could not load missions.json, using defaults');
+          missionSystem.loadMissions([
+            {
+              id: 'mission_1',
+              title: 'Dostawa Paczki',
+              description: 'Dostarcz paczkę na miejsce',
+              type: 'delivery',
+              targetX: 1200,
+              targetY: 1200,
+              deliveryRadius: 80,
+              reward: 500
+            }
+          ]);
+        }
+      }
+
+      spawnEntities(entityManager, map, camera) {
+        const playerSpawn = map.spawnPoints.find(s => s.type === 'player');
+        log('Player spawn: ' + playerSpawn.x + ',' + playerSpawn.y);
+        const player = Player.create(
+          entityManager,
+          playerSpawn.x,
+          playerSpawn.y
+        );
+        camera.setTarget(player);
+        log('Player created');
+
+        for (const spawn of map.spawnPoints) {
+          if (spawn.type === 'npc') {
+            NPC.create(entityManager, spawn.x, spawn.y, 'civilian');
+          }
+        }
+        log('NPCs created');
+
+        for (const spawn of map.vehicleSpawns) {
+          Vehicle.create(entityManager, spawn.x, spawn.y, spawn.vehicleType);
+        }
+        log('Vehicles created');
+
+        for (let i = 0; i < 5; i++) {
+          const x = Math.random() * map.width;
+          const y = Math.random() * map.height;
+          if (!map.isCollision(x, y)) {
+            NPC.create(entityManager, x, y, 'police');
+          }
+        }
+        log('Police created');
+      }
+
+      start() {
+        log('Starting game loop...');
+        this.engine.start();
+        log('Game loop started!');
+      }
+    }
+
+    log('Creating game...');
+    const game = new Game();
+    game.init().then(() => {
+      log('Init promise resolved');
+      game.start();
+    }).catch(error => {
+      log('FATAL ERROR: ' + error.message);
+      log('Stack: ' + error.stack);
+      document.getElementById('loading').innerHTML = 'BŁĄD: ' + error.message + '<br><small>Sprawdź log po prawej</small>';
+    });
+  </script>
+</body>
+</html>

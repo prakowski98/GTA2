@@ -14,18 +14,11 @@ export class WorldGenerator {
   }
 
   static generateDistricts(map) {
-    const districts = [
-      { x: 0, y: 0, w: map.tilesX / 2, h: map.tilesY / 2, color: 1 },
-      { x: map.tilesX / 2, y: 0, w: map.tilesX / 2, h: map.tilesY / 2, color: 2 },
-      { x: 0, y: map.tilesY / 2, w: map.tilesX / 2, h: map.tilesY / 2, color: 3 },
-      { x: map.tilesX / 2, y: map.tilesY / 2, w: map.tilesX / 2, h: map.tilesY / 2, color: 4 }
-    ];
-
-    for (const district of districts) {
-      for (let y = district.y; y < district.y + district.h; y++) {
-        for (let x = district.x; x < district.x + district.w; x++) {
-          map.setTile(Math.floor(x), Math.floor(y), district.color);
-        }
+    for (let y = 0; y < map.tilesY; y++) {
+      for (let x = 0; x < map.tilesX; x++) {
+        const colorX = x < map.tilesX / 2 ? 0 : 1;
+        const colorY = y < map.tilesY / 2 ? 0 : 2;
+        map.tiles[y][x] = colorX + colorY + 1;
       }
     }
   }
@@ -37,8 +30,11 @@ export class WorldGenerator {
     for (let x = 0; x < map.tilesX; x += roadSpacing) {
       for (let y = 0; y < map.tilesY; y++) {
         for (let w = 0; w < roadWidth; w++) {
-          map.setTile(x + w, y, 5);
-          map.setCollision(x + w, y, 0);
+          const tx = x + w;
+          if (tx < map.tilesX) {
+            map.tiles[y][tx] = 5;
+            map.collisionTiles[y][tx] = 0;
+          }
         }
       }
     }
@@ -46,8 +42,11 @@ export class WorldGenerator {
     for (let y = 0; y < map.tilesY; y += roadSpacing) {
       for (let x = 0; x < map.tilesX; x++) {
         for (let w = 0; w < roadWidth; w++) {
-          map.setTile(x, y + w, 5);
-          map.setCollision(x, y + w, 0);
+          const ty = y + w;
+          if (ty < map.tilesY) {
+            map.tiles[ty][x] = 5;
+            map.collisionTiles[ty][x] = 0;
+          }
         }
       }
     }
@@ -59,22 +58,19 @@ export class WorldGenerator {
 
     for (let by = 0; by < map.tilesY; by += blockSize) {
       for (let bx = 0; bx < map.tilesX; bx += blockSize) {
-        const isRoad = map.getTile(bx, by) === 5;
-        if (isRoad) continue;
+        if (map.tiles[by][bx] === 5) continue;
 
         const buildingWidth = MathUtils.randomInt(3, 8);
         const buildingHeight = MathUtils.randomInt(3, 8);
         const startX = bx + buildingPadding;
         const startY = by + buildingPadding;
+        const endX = Math.min(startX + buildingWidth, map.tilesX);
+        const endY = Math.min(startY + buildingHeight, map.tilesY);
 
-        for (let y = 0; y < buildingHeight; y++) {
-          for (let x = 0; x < buildingWidth; x++) {
-            const tx = startX + x;
-            const ty = startY + y;
-            if (tx < map.tilesX && ty < map.tilesY) {
-              map.setTile(tx, ty, 6);
-              map.setCollision(tx, ty, 1);
-            }
+        for (let ty = startY; ty < endY; ty++) {
+          for (let tx = startX; tx < endX; tx++) {
+            map.tiles[ty][tx] = 6;
+            map.collisionTiles[ty][tx] = 1;
           }
         }
       }

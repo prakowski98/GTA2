@@ -4,8 +4,8 @@ export const GameConfig = {
     height: 720
   },
   world: {
-    width: 4096,
-    height: 4096,
+    width: 2560,
+    height: 2560,
     tileSize: 32
   },
   camera: {
